@@ -1,170 +1,33 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { companyConfig, type JobType, type ServiceType } from '@/config/company';
+import { clearIntakeDraft, loadIntakeDraft, saveIntakeDraft } from './draft';
+import { validateUploadMetadata } from '@/lib/uploads/policy';
 
-interface WizardState {
-  jobType?: JobType;
-  serviceType: ServiceType;
-  description: string;
-  urgency: 'normal' | 'soon' | 'urgent';
-  street: string;
-  city: string;
-  state: string;
-  zip: string;
-  name: string;
-  email: string;
-  phone: string;
-  preferredContact: 'email' | 'phone' | 'text';
-  preferredDate: string;
-  preferredPeriod: 'morning' | 'afternoon' | 'evening';
-  consent: boolean;
-}
+type Urgency='normal'|'soon'|'urgent'; type Contact='email'|'phone'|'text'; type Period='morning'|'afternoon'|'evening';
+interface WizardState { jobType?:JobType; serviceType:ServiceType; description:string; urgency:Urgency; street:string; city:string; state:string; zip:string; name:string; email:string; phone:string; preferredContact:Contact; preferredDate:string; preferredPeriod:Period; consent:boolean }
+const initialState:WizardState={serviceType:'troubleshooting',description:'',urgency:'normal',street:'',city:'',state:'NY',zip:'',name:'',email:'',phone:'',preferredContact:'phone',preferredDate:'',preferredPeriod:'morning',consent:false};
+const steps=['Job type','Project','Location','Contact','Timing','Review'];
+const labels:Record<JobType,{title:string;detail:string}>={residential:{title:'Residential',detail:'Homes, apartments, upgrades and troubleshooting'},commercial:{title:'Commercial',detail:'Offices, retail, facilities and business electrical work'},industrial:{title:'Industrial',detail:'Plants, controls, equipment and industrial maintenance'}};
 
-const initialState: WizardState = {
-  serviceType: 'troubleshooting',
-  description: '',
-  urgency: 'normal',
-  street: '',
-  city: '',
-  state: 'NY',
-  zip: '',
-  name: '',
-  email: '',
-  phone: '',
-  preferredContact: 'phone',
-  preferredDate: '',
-  preferredPeriod: 'morning',
-  consent: false,
-};
-
-const stepNames = ['Job type', 'Project', 'Location', 'Contact', 'Timing', 'Review'];
-
-const labels: Record<JobType, { title: string; detail: string }> = {
-  residential: { title: 'Residential', detail: 'Homes, apartments, upgrades and troubleshooting' },
-  commercial: { title: 'Commercial', detail: 'Offices, retail, facilities and business electrical work' },
-  industrial: { title: 'Industrial', detail: 'Plants, controls, equipment and industrial maintenance' },
-};
-
-export function IntakeWizard({ embedded = false }: { embedded?: boolean }) {
-  const [step, setStep] = useState(0);
-  const [state, setState] = useState<WizardState>(initialState);
-
-  const percent = useMemo(() => Math.round(((step + 1) / stepNames.length) * 100), [step]);
-  const canContinue = step !== 0 || Boolean(state.jobType);
-
-  const update = <K extends keyof WizardState>(key: K, value: WizardState[K]) => {
-    setState((current) => ({ ...current, [key]: value }));
-  };
-
-  return (
-    <section className="intake-shell" data-testid="intake-shell" data-embed={embedded ? 'true' : 'false'} aria-labelledby="estimate-title">
-      <div className="intake-topbar">
-        <div>
-          <span className="eyebrow">Request an estimate</span>
-          <h1 id="estimate-title">Tell us what you need.</h1>
-          <p>Share the essentials in a few minutes. All Phase will review your request and confirm the next step.</p>
-        </div>
-        <div className="trust-pill" aria-label="Estimate request status">No account required</div>
-      </div>
-
-      <div className="progress-wrap" aria-label={`Step ${step + 1} of ${stepNames.length}: ${stepNames[step]}`}>
-        <div className="progress-meta"><span>Step {step + 1} of {stepNames.length}</span><strong>{stepNames[step]}</strong></div>
-        <div className="progress-track" role="progressbar" aria-valuemin={1} aria-valuemax={stepNames.length} aria-valuenow={step + 1}>
-          <span style={{ width: `${percent}%` }} />
-        </div>
-      </div>
-
-      <div className="wizard-card">
-        {step === 0 && (
-          <fieldset className="step-panel">
-            <legend className="sr-only">Job type</legend>
-            <div className="step-kicker">Start here</div>
-            <h2 className="step-heading">What can we help with?</h2>
-            <p className="step-copy">Choose the type of property or system so the request reaches the right workflow.</p>
-            <div className="choice-grid">
-              {companyConfig.jobTypes.map((jobType) => (
-                <label key={jobType} className={`choice-card ${state.jobType === jobType ? 'selected' : ''}`}>
-                  <input type="radio" name="jobType" value={jobType} checked={state.jobType === jobType} onChange={() => update('jobType', jobType)} />
-                  <span className="choice-dot" aria-hidden="true" />
-                  <strong>{labels[jobType].title}</strong>
-                  <small>{labels[jobType].detail}</small>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-        )}
-
-        {step === 1 && (
-          <div className="step-panel">
-            <div className="step-kicker">Project details</div>
-            <h2 className="step-heading">Tell us about the work</h2>
-            <p className="step-copy">A little context now can make the first call much more useful.</p>
-            <label className="field"><span>Service type</span>
-              <select value={state.serviceType} onChange={(event) => update('serviceType', event.target.value as ServiceType)}>
-                {companyConfig.services.map((service) => <option key={service} value={service}>{service.replaceAll('-', ' ')}</option>)}
-              </select>
-            </label>
-            <label className="field"><span>Describe the project or problem</span>
-              <textarea rows={6} value={state.description} onChange={(event) => update('description', event.target.value)} placeholder="What is happening, what would you like changed, and anything we should know before calling?" />
-              <small>{state.description.length}/4000 characters</small>
-            </label>
-            <label className="field"><span>Timing</span>
-              <select value={state.urgency} onChange={(event) => update('urgency', event.target.value as WizardState['urgency'])}>
-                <option value="normal">Planning / flexible</option><option value="soon">Soon</option><option value="urgent">Urgent attention requested</option>
-              </select>
-            </label>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="step-panel">
-            <div className="step-kicker">Service location</div><h2 className="step-heading">Where is the work?</h2>
-            <div className="field-grid two"><label className="field full"><span>Street address</span><input value={state.street} onChange={(e) => update('street', e.target.value)} autoComplete="street-address" /></label>
-              <label className="field"><span>City</span><input value={state.city} onChange={(e) => update('city', e.target.value)} autoComplete="address-level2" /></label>
-              <label className="field"><span>State</span><input value={state.state} onChange={(e) => update('state', e.target.value.toUpperCase())} maxLength={2} autoComplete="address-level1" /></label>
-              <label className="field"><span>ZIP code</span><input inputMode="numeric" value={state.zip} onChange={(e) => update('zip', e.target.value)} autoComplete="postal-code" /></label>
-            </div>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="step-panel">
-            <div className="step-kicker">Your information</div><h2 className="step-heading">How should we reach you?</h2>
-            <div className="field-grid two"><label className="field full"><span>Name</span><input value={state.name} onChange={(e) => update('name', e.target.value)} autoComplete="name" /></label>
-              <label className="field"><span>Email</span><input type="email" value={state.email} onChange={(e) => update('email', e.target.value)} autoComplete="email" /></label>
-              <label className="field"><span>Phone</span><input type="tel" value={state.phone} onChange={(e) => update('phone', e.target.value)} autoComplete="tel" /></label>
-            </div>
-            <fieldset className="inline-fieldset"><legend>Preferred contact</legend>{(['phone','email','text'] as const).map((method) => <label key={method}><input type="radio" name="preferredContact" checked={state.preferredContact === method} onChange={() => update('preferredContact', method)} /> {method[0].toUpperCase()+method.slice(1)}</label>)}</fieldset>
-          </div>
-        )}
-
-        {step === 4 && (
-          <div className="step-panel">
-            <div className="step-kicker">Availability</div><h2 className="step-heading">What time works best?</h2>
-            <p className="step-copy">This is a preference request, not a confirmed appointment. All Phase will confirm availability with you.</p>
-            <div className="field-grid two"><label className="field"><span>Preferred date</span><input type="date" value={state.preferredDate} onChange={(e) => update('preferredDate', e.target.value)} /></label>
-              <label className="field"><span>Preferred time</span><select value={state.preferredPeriod} onChange={(e) => update('preferredPeriod', e.target.value as WizardState['preferredPeriod'])}><option value="morning">Morning</option><option value="afternoon">Afternoon</option><option value="evening">Evening</option></select></label>
-            </div>
-            <div className="upload-placeholder"><strong>Photos & documents</strong><p>Secure upload support is wired into the starter architecture and will accept common images and PDFs.</p><button type="button" className="secondary-button" disabled>Upload files — backend connection next</button></div>
-          </div>
-        )}
-
-        {step === 5 && (
-          <div className="step-panel">
-            <div className="step-kicker">Review</div><h2 className="step-heading">Ready to send?</h2>
-            <div className="review-grid"><div><span>Job type</span><strong>{state.jobType ? labels[state.jobType].title : '—'}</strong></div><div><span>Service</span><strong>{state.serviceType.replaceAll('-', ' ')}</strong></div><div><span>Contact</span><strong>{state.name || '—'}</strong></div><div><span>Preferred date</span><strong>{state.preferredDate || '—'}</strong></div></div>
-            <label className="consent"><input type="checkbox" checked={state.consent} onChange={(e) => update('consent', e.target.checked)} /><span>I confirm this information is accurate and understand the requested date/time is not booked until All Phase confirms it.</span></label>
-            <button type="button" className="primary-button wide" disabled={!state.consent}>Submit estimate request</button>
-          </div>
-        )}
-
-        <div className="wizard-actions">
-          <button type="button" className="secondary-button" onClick={() => setStep((value) => Math.max(0, value - 1))} disabled={step === 0}>Back</button>
-          {step < stepNames.length - 1 && <button type="button" className="primary-button" onClick={() => setStep((value) => Math.min(stepNames.length - 1, value + 1))} disabled={!canContinue}>Continue</button>}
-        </div>
-      </div>
-      <p className="privacy-note">Your request is used only to evaluate and follow up on the electrical work you describe.</p>
-    </section>
-  );
+export function IntakeWizard({embedded=false}:{embedded?:boolean}){
+ const [step,setStep]=useState(0); const [state,setState]=useState<WizardState>(initialState); const [files,setFiles]=useState<File[]>([]); const [fileError,setFileError]=useState(''); const [submitError,setSubmitError]=useState(''); const [submitting,setSubmitting]=useState(false); const [reference,setReference]=useState('');
+ useEffect(()=>{const saved=loadIntakeDraft<Partial<WizardState>>();if(saved)setState(s=>({...s,...saved}));},[]);
+ useEffect(()=>{saveIntakeDraft(state);},[state]);
+ useEffect(()=>{if(!embedded)return;const send=()=>window.parent?.postMessage({type:'all-phase:intake-height',height:document.documentElement.scrollHeight},'*');send();const ro=new ResizeObserver(send);ro.observe(document.body);return()=>ro.disconnect();},[embedded,step,reference]);
+ const percent=useMemo(()=>Math.round(((step+1)/steps.length)*100),[step]);
+ const update=<K extends keyof WizardState>(key:K,value:WizardState[K])=>setState(s=>({...s,[key]:value}));
+ const canContinue=step===0?Boolean(state.jobType):step===1?state.description.trim().length>=10:step===2?state.street.trim().length>=3&&state.city.trim().length>=2&&/^\d{5}(-\d{4})?$/.test(state.zip):step===3?state.name.trim().length>=2&&state.email.includes('@')&&state.phone.trim().length>=10:step===4?Boolean(state.preferredDate):true;
+ function chooseFiles(list:FileList|null){const next=Array.from(list??[]);const result=validateUploadMetadata(next.map(f=>({name:f.name,type:f.type,size:f.size})));if(!result.ok){setFileError(`File rejected: ${result.reason}${result.file?` (${result.file})`:''}`);setFiles([]);return;}setFileError('');setFiles(next);}
+ async function submit(){if(submitting||!state.jobType||!state.consent)return;setSubmitting(true);setSubmitError('');const payload={jobType:state.jobType,serviceType:state.serviceType,description:state.description,urgency:state.urgency,address:{street:state.street,city:state.city,state:state.state,zip:state.zip},customer:{name:state.name,email:state.email,phone:state.phone,preferredContact:state.preferredContact},preferredWindows:[{date:state.preferredDate,period:state.preferredPeriod}],consent:true};const key=crypto.randomUUID();const form=new FormData();form.append('payload',JSON.stringify(payload));files.forEach(f=>form.append('files',f));try{const response=await fetch('/api/intake',{method:'POST',headers:{'idempotency-key':key},body:form});const body=await response.json();if(!response.ok)throw new Error(body.error||'Unable to submit request.');setReference(body.reference);clearIntakeDraft();setFiles([]);}catch(e){setSubmitError(e instanceof Error?e.message:'Unable to submit request.');}finally{setSubmitting(false);}}
+ if(reference)return <section className="intake-shell" data-testid="intake-shell" data-embed={embedded?'true':'false'}><div className="wizard-card success-card"><span className="eyebrow">Request received</span><h1>Thanks — your estimate request is saved.</h1><p>Keep this reference number for your records.</p><div className="reference-number">{reference}</div><p>All Phase Electric will review the information you provided and confirm the next step using your preferred contact method.</p><button className="secondary-button" onClick={()=>{setReference('');setState(initialState);setStep(0);}}>Start another request</button></div></section>;
+ return <section className="intake-shell" data-testid="intake-shell" data-embed={embedded?'true':'false'} aria-labelledby="estimate-title"><div className="intake-topbar"><div><span className="eyebrow">Request an estimate</span><h1 id="estimate-title">Tell us what you need.</h1><p>Share the essentials in a few minutes. All Phase will review your request and confirm the next step.</p></div><div className="trust-pill">No account required</div></div><div className="progress-wrap" aria-label={`Step ${step+1} of ${steps.length}: ${steps[step]}`}><div className="progress-meta"><span>Step {step+1} of {steps.length}</span><strong>{steps[step]}</strong></div><div className="progress-track" role="progressbar" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={step+1}><span style={{width:`${percent}%`}}/></div></div><div className="wizard-card">
+ {step===0&&<fieldset className="step-panel"><legend><span className="step-kicker">Start here</span></legend><h2 className="step-heading">What can we help with?</h2><p className="step-copy">Choose the type of property or system so the request reaches the right workflow.</p><div className="choice-grid">{companyConfig.jobTypes.map(j=><label key={j} className={`choice-card ${state.jobType===j?'selected':''}`}><input type="radio" name="jobType" value={j} checked={state.jobType===j} onChange={()=>update('jobType',j)}/><span className="choice-dot" aria-hidden="true"/><strong>{labels[j].title}</strong><small>{labels[j].detail}</small></label>)}</div></fieldset>}
+ {step===1&&<div className="step-panel"><div className="step-kicker">Project details</div><h2 className="step-heading">Tell us about the work</h2><p className="step-copy">A little context now can make the first call much more useful.</p><label className="field"><span>Service type</span><select value={state.serviceType} onChange={e=>update('serviceType',e.target.value as ServiceType)}>{companyConfig.services.map(s=><option key={s} value={s}>{s.replaceAll('-',' ')}</option>)}</select></label><label className="field"><span>Describe the project or problem</span><textarea rows={6} value={state.description} onChange={e=>update('description',e.target.value)} maxLength={4000} placeholder="What is happening, what would you like changed, and anything we should know before calling?"/><small>{state.description.length}/4000 characters</small></label><label className="field"><span>Urgency</span><select value={state.urgency} onChange={e=>update('urgency',e.target.value as Urgency)}><option value="normal">Planning / flexible</option><option value="soon">Soon</option><option value="urgent">Urgent attention requested</option></select></label></div>}
+ {step===2&&<div className="step-panel"><div className="step-kicker">Service location</div><h2 className="step-heading">Where is the work?</h2><div className="field-grid two"><label className="field full"><span>Street address</span><input autoComplete="street-address" value={state.street} onChange={e=>update('street',e.target.value)}/></label><label className="field"><span>City</span><input autoComplete="address-level2" value={state.city} onChange={e=>update('city',e.target.value)}/></label><label className="field"><span>State</span><input maxLength={2} value={state.state} onChange={e=>update('state',e.target.value.toUpperCase())}/></label><label className="field"><span>ZIP code</span><input inputMode="numeric" value={state.zip} onChange={e=>update('zip',e.target.value)}/></label></div></div>}
+ {step===3&&<div className="step-panel"><div className="step-kicker">Your information</div><h2 className="step-heading">How should we reach you?</h2><div className="field-grid two"><label className="field full"><span>Name</span><input autoComplete="name" value={state.name} onChange={e=>update('name',e.target.value)}/></label><label className="field"><span>Email</span><input type="email" autoComplete="email" value={state.email} onChange={e=>update('email',e.target.value)}/></label><label className="field"><span>Phone</span><input type="tel" autoComplete="tel" value={state.phone} onChange={e=>update('phone',e.target.value)}/></label></div><fieldset className="inline-fieldset"><legend>Preferred contact</legend>{(['phone','email','text'] as const).map(m=><label key={m}><input type="radio" name="preferredContact" checked={state.preferredContact===m} onChange={()=>update('preferredContact',m)}/> {m[0].toUpperCase()+m.slice(1)}</label>)}</fieldset></div>}
+ {step===4&&<div className="step-panel"><div className="step-kicker">Availability</div><h2 className="step-heading">What time works best?</h2><p className="step-copy">This is a preference request, not a confirmed appointment. All Phase will confirm availability with you.</p><div className="field-grid two"><label className="field"><span>Preferred date</span><input type="date" value={state.preferredDate} onChange={e=>update('preferredDate',e.target.value)}/></label><label className="field"><span>Preferred time</span><select value={state.preferredPeriod} onChange={e=>update('preferredPeriod',e.target.value as Period)}><option value="morning">Morning</option><option value="afternoon">Afternoon</option><option value="evening">Evening</option></select></label></div><div className="upload-placeholder"><strong>Photos & documents</strong><p>Add up to 6 JPG, PNG, WebP, HEIC or PDF files, 10 MB each.</p><label className="secondary-button upload-button">Choose files<input hidden multiple type="file" accept="image/jpeg,image/png,image/webp,image/heic,application/pdf" onChange={e=>chooseFiles(e.target.files)}/></label>{files.length>0&&<p>{files.length} file{files.length===1?'':'s'} ready to upload.</p>}{fileError&&<p role="alert" className="form-error">{fileError}</p>}</div></div>}
+ {step===5&&<div className="step-panel"><div className="step-kicker">Review</div><h2 className="step-heading">Ready to send?</h2><div className="review-grid"><div><span>Job type</span><strong>{state.jobType?labels[state.jobType].title:'—'}</strong></div><div><span>Service</span><strong>{state.serviceType.replaceAll('-',' ')}</strong></div><div><span>Contact</span><strong>{state.name||'—'}</strong></div><div><span>Preferred date</span><strong>{state.preferredDate||'—'}</strong></div></div><label className="consent"><input type="checkbox" checked={state.consent} onChange={e=>update('consent',e.target.checked)}/><span>I confirm this information is accurate and understand the requested date/time is not booked until All Phase confirms it.</span></label>{submitError&&<p role="alert" className="form-error">{submitError}</p>}<button type="button" className="primary-button wide" disabled={!state.consent||submitting} onClick={()=>void submit()}>{submitting?'Saving request…':'Submit estimate request'}</button></div>}
+ <div className="wizard-actions"><button type="button" className="secondary-button" onClick={()=>setStep(v=>Math.max(0,v-1))} disabled={step===0||submitting}>Back</button>{step<steps.length-1&&<button type="button" className="primary-button" onClick={()=>setStep(v=>Math.min(steps.length-1,v+1))} disabled={!canContinue||submitting}>Continue</button>}</div></div><p className="privacy-note">Your request is used only to evaluate and follow up on the electrical work you describe.</p></section>;
 }
