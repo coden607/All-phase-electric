@@ -1,7 +1,7 @@
 import { intakeSchema, type NormalizedIntake } from './schema';
 import { createLeadReference } from './reference';
 
-export interface RoutePersistResult { id: string; referenceNumber: string }
+export interface RoutePersistResult { id: string; referenceNumber: string; duplicate?: boolean }
 export interface RouteDeps {
   persist: (input: { intake: NormalizedIntake; referenceNumber: string; idempotencyKey: string }) => Promise<RoutePersistResult>;
   notify: (input: { lead: RoutePersistResult; intake: NormalizedIntake }) => Promise<void>;
@@ -17,12 +17,13 @@ export async function handleIntakeRequest(request: { payload: unknown; idempoten
   if (!parsed.success) return { status: 400 as const, body: { error: 'Invalid estimate request.', issues: parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`) } };
   const referenceNumber = createLeadReference(deps.now?.() ?? new Date(), deps.random ?? Math.random);
   const lead = await deps.persist({ intake: parsed.data, referenceNumber, idempotencyKey });
+  if (lead.duplicate) return { status: 200 as const, body: { leadId: lead.id, reference: lead.referenceNumber, notificationQueued: false, postPersistWarning: false, duplicate: true } };
   let postPersistWarning = false;
   if (deps.afterPersist) { try { await deps.afterPersist({ lead, intake: parsed.data }); } catch { postPersistWarning = true; } }
   try {
     await deps.notify({ lead, intake: parsed.data });
-    return { status: 201 as const, body: { leadId: lead.id, reference: lead.referenceNumber, notificationQueued: true, postPersistWarning } };
+    return { status: 201 as const, body: { leadId: lead.id, reference: lead.referenceNumber, notificationQueued: true, postPersistWarning, duplicate: false } };
   } catch {
-    return { status: 201 as const, body: { leadId: lead.id, reference: lead.referenceNumber, notificationQueued: false, postPersistWarning } };
+    return { status: 201 as const, body: { leadId: lead.id, reference: lead.referenceNumber, notificationQueued: false, postPersistWarning, duplicate: false } };
   }
 }
