@@ -17,9 +17,16 @@ describe('intake route handler', () => {
     expect(result.status).toBe(400); expect(persist).not.toHaveBeenCalled();
   });
   it('returns a saved reference and remains successful when notification fails', async () => {
-    const persist = vi.fn().mockResolvedValue({ id: 'lead-1', referenceNumber: 'APE-260902-AB12' });
+    const persist = vi.fn().mockResolvedValue({ id: 'lead-1', referenceNumber: 'APE-260902-AB12', duplicate: false });
     const result = await handleIntakeRequest({ payload: validPayload, idempotencyKey: 'abc' }, { persist, notify: vi.fn().mockRejectedValue(new Error('provider down')) });
     expect(result.status).toBe(201); expect(result.body.reference).toBe('APE-260902-AB12'); expect(result.body.notificationQueued).toBe(false);
+  });
+  it('does not duplicate uploads or notifications when an idempotent retry finds the saved lead', async () => {
+    const afterPersist = vi.fn(); const notify = vi.fn();
+    const persist = vi.fn().mockResolvedValue({ id: 'lead-1', referenceNumber: 'APE-260902-AB12', duplicate: true });
+    const result = await handleIntakeRequest({ payload: validPayload, idempotencyKey: 'same-key' }, { persist, afterPersist, notify });
+    expect(result.status).toBe(200); expect(result.body.reference).toBe('APE-260902-AB12'); expect(result.body.duplicate).toBe(true);
+    expect(afterPersist).not.toHaveBeenCalled(); expect(notify).not.toHaveBeenCalled();
   });
   it('requires an idempotency key', async () => {
     const result = await handleIntakeRequest({ payload: validPayload, idempotencyKey: '' }, { persist: vi.fn(), notify: vi.fn() });
