@@ -78,7 +78,9 @@ export function IntakeWizard({ embedded = false }: { embedded?: boolean }) {
       <div className="wizard-card">
         {step === 0 && (
           <fieldset className="step-panel">
-            <legend><span className="step-kicker">Start here</span><span className="step-heading">What can we help with?</span></legend>
+            <legend className="sr-only">Job type</legend>
+            <div className="step-kicker">Start here</div>
+            <h2 className="step-heading">What can we help with?</h2>
             <p className="step-copy">Choose the type of property or system so the request reaches the right workflow.</p>
             <div className="choice-grid">
               {companyConfig.jobTypes.map((jobType) => (
