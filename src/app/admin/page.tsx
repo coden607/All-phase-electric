@@ -1,13 +1,23 @@
-import { demoLeads, formatCurrency, getAttentionLevel, getPipelineMetrics, getSmartSummary } from '@/features/demo/sales-tools';
+'use client';
+
+import { useMemo, useState } from 'react';
+import { demoLeads, formatCurrency, getAttentionLevel, getPipelineMetrics, getSmartSummary, type DemoLead } from '@/features/demo/sales-tools';
 
 const statusLabel: Record<string, string> = {
   new: 'New', contacted: 'Contacted', scheduled: 'Scheduled', won: 'Won', lost: 'Lost',
 };
 
 export default function AdminPage() {
-  const metrics = getPipelineMetrics(demoLeads);
+  const [leads, setLeads] = useState<DemoLead[]>(demoLeads);
+  const [notice, setNotice] = useState('');
+  const metrics = useMemo(() => getPipelineMetrics(leads), [leads]);
   const recoveredJobExample = 1000;
   const starterPrice = 500;
+
+  const updateLead = (id: string, patch: Partial<DemoLead>, message: string) => {
+    setLeads((current) => current.map((lead) => lead.id === id ? { ...lead, ...patch } : lead));
+    setNotice(message);
+  };
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
@@ -20,6 +30,8 @@ export default function AdminPage() {
           </div>
           <a href="/estimate" className="rounded-xl bg-amber-400 px-5 py-3 text-center font-bold text-slate-950">Open customer estimate form</a>
         </header>
+
+        {notice && <div role="status" className="mt-5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-200">{notice}</div>}
 
         <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Sales pipeline metrics">
           <Metric label="Open opportunities" value={String(metrics.openCount)} detail="New, contacted, or scheduled" />
@@ -35,11 +47,11 @@ export default function AdminPage() {
                 <h2 className="text-2xl font-bold">Live lead queue</h2>
                 <p className="text-sm text-slate-400">Realistic demo requests show how Scott can work the entire pipeline from one screen.</p>
               </div>
-              <div className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300">Auto-refresh ready</div>
+              <div className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300">Interactive demo</div>
             </div>
 
             <div className="space-y-4">
-              {demoLeads.map((lead) => {
+              {leads.map((lead) => {
                 const attention = getAttentionLevel(lead);
                 return (
                   <article key={lead.id} className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/10">
@@ -73,8 +85,9 @@ export default function AdminPage() {
                         <a href={`tel:${lead.phone}`} className="rounded-lg bg-emerald-500 px-3 py-2 text-center text-sm font-bold text-slate-950">Call</a>
                         <a href={`sms:${lead.phone}`} className="rounded-lg bg-sky-500 px-3 py-2 text-center text-sm font-bold text-slate-950">Text</a>
                         <a href={`mailto:${lead.email}?subject=All%20Phase%20Electric%20-%20${encodeURIComponent(lead.id)}`} className="rounded-lg bg-violet-400 px-3 py-2 text-center text-sm font-bold text-slate-950">Email</a>
-                        <button className="col-span-2 rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold">Confirm {lead.preferredWindow}</button>
-                        <button className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold">Mark won</button>
+                        <button onClick={() => updateLead(lead.id, { status: 'scheduled', followUpDue: false }, `Appointment request confirmed for ${lead.customer}.`)} className="col-span-2 rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold">Confirm {lead.preferredWindow}</button>
+                        <button onClick={() => updateLead(lead.id, { status: 'won', followUpDue: false }, `Job marked won for ${lead.customer}.`)} className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold">Mark won</button>
+                        {lead.status === 'new' && <button onClick={() => updateLead(lead.id, { status: 'contacted', followUpDue: false }, `Follow-up logged for ${lead.customer}.`)} className="col-span-3 rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-2 text-sm font-semibold text-amber-200">Log follow-up / contacted</button>}
                       </div>
                     </div>
                   </article>
