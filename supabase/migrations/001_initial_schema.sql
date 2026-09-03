@@ -32,6 +32,7 @@ $$;
 revoke all on function public.is_admin() from public;
 grant execute on function public.is_admin() to authenticated;
 
+drop policy if exists "admins can view admin membership" on public.admin_users;
 create policy "admins can view admin membership"
 on public.admin_users
 for select
@@ -55,7 +56,7 @@ create table if not exists public.leads (
   customer_phone text not null,
   preferred_contact text not null check (preferred_contact in ('email', 'phone', 'text')),
   preferred_windows jsonb not null default '[]'::jsonb,
-  status text not null default 'new' check (status in ('new', 'contacted', 'scheduled', 'won', 'lost')),
+  status text not null default 'new' check (status in ('new', 'contacted', 'scheduled', 'estimate_sent', 'won', 'lost', 'archived')),
   consented_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -65,12 +66,15 @@ create index if not exists leads_status_created_at_idx on public.leads(status, c
 create index if not exists leads_job_type_idx on public.leads(job_type);
 create index if not exists leads_customer_email_idx on public.leads(lower(customer_email));
 
+drop trigger if exists leads_set_updated_at on public.leads;
 create trigger leads_set_updated_at
 before update on public.leads
 for each row execute function public.set_updated_at();
 
 alter table public.leads enable row level security;
+drop policy if exists "admins can view leads" on public.leads;
 create policy "admins can view leads" on public.leads for select to authenticated using (public.is_admin());
+drop policy if exists "admins can update leads" on public.leads;
 create policy "admins can update leads" on public.leads for update to authenticated using (public.is_admin()) with check (public.is_admin());
 
 create table if not exists public.lead_attachments (
@@ -85,6 +89,7 @@ create table if not exists public.lead_attachments (
 
 create index if not exists lead_attachments_lead_id_idx on public.lead_attachments(lead_id);
 alter table public.lead_attachments enable row level security;
+drop policy if exists "admins can view attachments" on public.lead_attachments;
 create policy "admins can view attachments" on public.lead_attachments for select to authenticated using (public.is_admin());
 
 create table if not exists public.lead_notes (
@@ -97,7 +102,9 @@ create table if not exists public.lead_notes (
 
 create index if not exists lead_notes_lead_id_created_at_idx on public.lead_notes(lead_id, created_at desc);
 alter table public.lead_notes enable row level security;
+drop policy if exists "admins can view notes" on public.lead_notes;
 create policy "admins can view notes" on public.lead_notes for select to authenticated using (public.is_admin());
+drop policy if exists "admins can create notes" on public.lead_notes;
 create policy "admins can create notes" on public.lead_notes for insert to authenticated with check (public.is_admin() and author_user_id = auth.uid());
 
 create table if not exists public.notification_preferences (
@@ -109,9 +116,12 @@ create table if not exists public.notification_preferences (
 );
 
 alter table public.notification_preferences enable row level security;
+drop policy if exists "admins can view notification preferences" on public.notification_preferences;
 create policy "admins can view notification preferences" on public.notification_preferences for select to authenticated using (public.is_admin());
+drop policy if exists "admins can update notification preferences" on public.notification_preferences;
 create policy "admins can update notification preferences" on public.notification_preferences for update to authenticated using (public.is_admin()) with check (public.is_admin());
 
+drop trigger if exists notification_preferences_set_updated_at on public.notification_preferences;
 create trigger notification_preferences_set_updated_at
 before update on public.notification_preferences
 for each row execute function public.set_updated_at();
@@ -128,6 +138,7 @@ create table if not exists public.notification_attempts (
 
 create index if not exists notification_attempts_lead_id_created_at_idx on public.notification_attempts(lead_id, created_at desc);
 alter table public.notification_attempts enable row level security;
+drop policy if exists "admins can view notification attempts" on public.notification_attempts;
 create policy "admins can view notification attempts" on public.notification_attempts for select to authenticated using (public.is_admin());
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -143,6 +154,7 @@ on conflict (id) do update set
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
+drop policy if exists "admins can read lead attachment objects" on storage.objects;
 create policy "admins can read lead attachment objects"
 on storage.objects
 for select
