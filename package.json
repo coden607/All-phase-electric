@@ -14,7 +14,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "netlify:status": "netlify status",
+    "netlify:deploy": "netlify deploy",
+    "netlify:deploy:prod": "netlify deploy --prod"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
@@ -37,6 +40,7 @@
     "jsdom": "^26.1.0",
     "tailwindcss": "4.3.3",
     "typescript": "6.0.2",
-    "vitest": "4.1.11"
+    "vitest": "4.1.11",
+    "netlify-cli": "27.4.2"
   }
 }
