@@ -12,8 +12,7 @@ const steps=['Job type','Project','Location','Contact','Timing','Review'];
 const labels:Record<JobType,{title:string;detail:string}>={residential:{title:'Residential',detail:'Homes, apartments, upgrades and troubleshooting'},commercial:{title:'Commercial',detail:'Offices, retail, facilities and business electrical work'},industrial:{title:'Industrial',detail:'Plants, controls, equipment and industrial maintenance'}};
 
 export function IntakeWizard({embedded=false}:{embedded?:boolean}){
- const [step,setStep]=useState(0); const [state,setState]=useState<WizardState>(initialState); const [files,setFiles]=useState<File[]>([]); const [fileError,setFileError]=useState(''); const [submitError,setSubmitError]=useState(''); const [submitting,setSubmitting]=useState(false); const [reference,setReference]=useState('');
- useEffect(()=>{const saved=loadIntakeDraft<Partial<WizardState>>();if(saved)setState(s=>({...s,...saved}));},[]);
+ const [step,setStep]=useState(0); const [state,setState]=useState<WizardState>(()=>{const saved=loadIntakeDraft<Partial<WizardState>>();return saved?{...initialState,...saved}:initialState;}); const [files,setFiles]=useState<File[]>([]); const [fileError,setFileError]=useState(''); const [submitError,setSubmitError]=useState(''); const [submitting,setSubmitting]=useState(false); const [reference,setReference]=useState('');
  useEffect(()=>{saveIntakeDraft(state);},[state]);
  useEffect(()=>{if(!embedded)return;const send=()=>window.parent?.postMessage({type:'all-phase:intake-height',height:document.documentElement.scrollHeight},'*');send();const ro=new ResizeObserver(send);ro.observe(document.body);return()=>ro.disconnect();},[embedded,step,reference]);
  const percent=useMemo(()=>Math.round(((step+1)/steps.length)*100),[step]);
