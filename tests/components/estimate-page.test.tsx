@@ -10,4 +10,13 @@ describe('estimate page', () => {
     expect(screen.getByText('Industrial')).toBeTruthy();
     expect(screen.getByText(/no account required/i)).toBeTruthy();
   });
+
+  it('reflects All Phase credibility and service coverage in the customer experience', () => {
+    render(<EstimatePage />);
+    expect(screen.getByText(/over 50 years/i)).toBeTruthy();
+    expect(screen.getByText(/within 60 miles/i)).toBeTruthy();
+    expect(screen.getByText(/607-797-6535/)).toBeTruthy();
+    expect(screen.getByRole('option', { name: /data \/ lan wiring/i })).toBeTruthy();
+    expect(screen.getByRole('option', { name: /surge protection/i })).toBeTruthy();
+  });
 });
