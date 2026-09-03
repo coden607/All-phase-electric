@@ -11,10 +11,10 @@ export async function persistLead(input: { intake: NormalizedIntake; referenceNu
     customer_email: input.intake.customer.email, customer_phone: input.intake.customer.phone,
     preferred_contact: input.intake.customer.preferredContact, preferred_windows: input.intake.preferredWindows,
   };
-  const { data, error } = await supabase.from('leads').insert(row).select('id,reference_number').single();
+  const { data, error } = await supabase.from('all_phase_leads').insert(row).select('id,reference_number').single();
   if (!error && data) return { id: data.id, referenceNumber: data.reference_number, duplicate: false };
   if (error?.code === '23505') {
-    const existing = await supabase.from('leads').select('id,reference_number').eq('idempotency_key', input.idempotencyKey).maybeSingle();
+    const existing = await supabase.from('all_phase_leads').select('id,reference_number').eq('idempotency_key', input.idempotencyKey).maybeSingle();
     if (existing.data) return { id: existing.data.id, referenceNumber: existing.data.reference_number, duplicate: true };
   }
   throw new Error(error?.message ?? 'Unable to save estimate request.');
