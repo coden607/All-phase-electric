@@ -47,6 +47,6 @@
     "typescript": "6.0.2",
     "vitest": "4.1.11",
     "netlify-cli": "27.4.2",
-    "supabase": "2.45.5"
+    "supabase": "2.116.0"
   }
 }
