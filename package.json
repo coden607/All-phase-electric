@@ -17,7 +17,12 @@
     "test:e2e": "playwright test",
     "netlify:status": "netlify status",
     "netlify:deploy": "netlify deploy",
-    "netlify:deploy:prod": "netlify deploy --prod"
+    "netlify:deploy:prod": "netlify deploy --prod",
+    "supabase:status": "supabase status",
+    "supabase:link": "supabase link",
+    "supabase:db:push": "supabase db push",
+    "supabase:db:diff": "supabase db diff",
+    "supabase:gen:types": "supabase gen types typescript --linked > src/types/database.generated.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
@@ -41,6 +46,7 @@
     "tailwindcss": "4.3.3",
     "typescript": "6.0.2",
     "vitest": "4.1.11",
-    "netlify-cli": "27.4.2"
+    "netlify-cli": "27.4.2",
+    "supabase": "2.45.5"
   }
 }
